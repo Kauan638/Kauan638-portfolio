@@ -67,10 +67,120 @@ header p a:hover{ text-decoration:underline; }
 .faixa{
     width:220px;
     height:5px;
-    margin:18px auto 40px;
+    margin:18px auto 30px;
     border-radius:2px;
     background:repeating-linear-gradient(135deg,var(--amber) 0px,var(--amber) 10px,var(--bg) 10px,var(--bg) 20px);
     opacity:.85;
+}
+
+/* =========================
+   BARRA DE ATUALIZAÇÃO
+   ========================= */
+
+.status-bar{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    flex-wrap:wrap;
+    margin-bottom:40px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:.78rem;
+    color:var(--muted);
+}
+
+.status-bar .pulso{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:var(--green);
+    display:inline-block;
+    box-shadow:0 0 0 0 rgba(61,203,130,.6);
+    animation:pulsar 2s infinite;
+}
+
+@keyframes pulsar{
+    0%{ box-shadow:0 0 0 0 rgba(61,203,130,.55); }
+    70%{ box-shadow:0 0 0 8px rgba(61,203,130,0); }
+    100%{ box-shadow:0 0 0 0 rgba(61,203,130,0); }
+}
+
+.status-bar button{
+    background:var(--surface);
+    border:1px solid var(--border-light);
+    color:var(--text);
+    font-family:'JetBrains Mono',monospace;
+    font-size:.75rem;
+    font-weight:600;
+    letter-spacing:.03em;
+    padding:7px 14px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:.2s;
+}
+
+.status-bar button:hover{
+    border-color:var(--amber);
+    color:var(--amber);
+}
+
+.status-bar button:disabled{
+    opacity:.5;
+    cursor:default;
+}
+
+/* =========================
+   SEÇÕES / CATEGORIAS
+   ========================= */
+
+.secao{
+    margin-bottom:40px;
+}
+
+.secao-titulo{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:18px;
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+    font-size:1.05rem;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--text);
+}
+
+.secao-titulo .icone{
+    width:26px;
+    height:26px;
+    border-radius:6px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:.9rem;
+    flex-shrink:0;
+}
+
+.secao-titulo .contagem{
+    margin-left:auto;
+    font-family:'JetBrains Mono',monospace;
+    font-size:.7rem;
+    font-weight:600;
+    letter-spacing:.03em;
+    color:var(--muted);
+    text-transform:none;
+}
+
+.secao--relatorios .secao-titulo .icone{
+    background:rgba(76,143,209,.15);
+    color:var(--blue);
+    border:1px solid var(--blue);
+}
+
+.secao--operacao .secao-titulo .icone{
+    background:rgba(61,203,130,.15);
+    color:var(--green);
+    border:1px solid var(--green);
 }
 
 .grid{
@@ -89,6 +199,10 @@ header p a:hover{ text-decoration:underline; }
     color:var(--text);
     display:block;
     transition:.2s;
+}
+
+.secao--operacao .card{
+    border-left-color:var(--green);
 }
 
 .card:hover{
@@ -131,10 +245,23 @@ header p a:hover{ text-decoration:underline; }
     border-radius:50%;
     display:inline-block;
     margin-right:5px;
+    background:var(--muted);
 }
 
-.js .dot{ background:#F2CB4B; }
-.html .dot{ background:var(--red); }
+.dot.lang-javascript{ background:#F2CB4B; }
+.dot.lang-html{ background:var(--red); }
+.dot.lang-css{ background:var(--blue); }
+.dot.lang-typescript{ background:var(--blue); }
+.dot.lang-python{ background:var(--green); }
+
+.meta .atualizado.recente{
+    color:var(--green);
+}
+
+.card.carregando p,
+.card.carregando .meta{
+    opacity:.45;
+}
 
 footer{
     text-align:center;
@@ -160,6 +287,11 @@ footer a:hover{
     color:#241A05;
 }
 
+@media(max-width:640px){
+    body{ padding:30px 16px; }
+    .status-bar{ flex-direction:column; gap:10px; }
+}
+
 </style>
 </head>
 <body>
@@ -172,38 +304,27 @@ footer a:hover{
         <div class="faixa"></div>
     </header>
 
-    <div class="grid">
+    <div class="status-bar">
+        <span><span class="pulso"></span> &nbsp;Sincronizado com o GitHub · <span id="horaAtualizacao">carregando…</span></span>
+        <button id="btnAtualizar" onclick="carregarTudo(true)">🔄 Atualizar agora</button>
+    </div>
 
-        <a class="card" href="https://kauan638.github.io/Gerador-de-abastecimento-/" target="_blank">
-            <h2>Gerador de Abastecimento</h2>
-            <p>Gerar abastecimento conforme a necessidade dos pedidos gerados</p>
-            <div class="meta js"><span class="dot"></span>JavaScript · atualizado agora</div>
-        </a>
+    <div class="secao secao--relatorios">
+        <div class="secao-titulo">
+            <span class="icone">📊</span>
+            Relatórios
+            <span class="contagem" id="contagemRelatorios"></span>
+        </div>
+        <div class="grid" id="gridRelatorios"></div>
+    </div>
 
-        <a class="card" href="https://kauan638.github.io/An-lise-de-pedidos-antigos/" target="_blank">
-            <h2>Análise de Pedidos Antigos</h2>
-            <p>Análise de pedidos</p>
-            <div class="meta js"><span class="dot"></span>JavaScript · atualizado há 2 min</div>
-        </a>
-
-        <a class="card" href="https://kauan638.github.io/CD-107-MAP-VIEW-/" target="_blank">
-            <h2>CD-107 Map View</h2>
-            <p>Mapa de armazenagem</p>
-            <div class="meta html"><span class="dot"></span>HTML · atualizado há 5 dias</div>
-        </a>
-
-        <a class="card" href="https://kauan638.github.io/Pend-ncia-PTL/" target="_blank">
-            <h2>Pendência PTL</h2>
-            <p>Detalhamento por PTL → SKU → DESCRIÇÃO</p>
-            <div class="meta js"><span class="dot"></span>JavaScript · atualizado semana passada</div>
-        </a>
-
-        <a class="card" href="https://kauan638.github.io/CD-107-PCP-INTELIG-NCIA/" target="_blank">
-            <h2>CD-107 PCP Inteligência</h2>
-            <p>Dashboards de monitoramento constante de estoque</p>
-            <div class="meta html"><span class="dot"></span>HTML · atualizado há 2 semanas</div>
-        </a>
-
+    <div class="secao secao--operacao">
+        <div class="secao-titulo">
+            <span class="icone">⚙️</span>
+            Operação
+            <span class="contagem" id="contagemOperacao"></span>
+        </div>
+        <div class="grid" id="gridOperacao"></div>
     </div>
 
     <footer>
@@ -211,6 +332,320 @@ footer a:hover{
     </footer>
 
 </div>
+
+<script>
+
+// =====================================================
+// FERRAMENTAS
+// Pra adicionar uma nova, é só incluir um objeto aqui —
+// o resto (categoria, linguagem, data de atualização)
+// é resolvido automaticamente via API do GitHub.
+// categoria: "relatorios" ou "operacao"
+// =====================================================
+
+const FERRAMENTAS = [
+
+    {
+        nome: "Gerador de Abastecimento",
+        descricao: "Gerar abastecimento conforme a necessidade dos pedidos gerados",
+        url: "https://kauan638.github.io/Gerador-de-abastecimento-/",
+        categoria: "operacao"
+    },
+    {
+        nome: "Análise de Pedidos Antigos",
+        descricao: "Análise de pedidos",
+        url: "https://kauan638.github.io/An-lise-de-pedidos-antigos/",
+        categoria: "relatorios"
+    },
+    {
+        nome: "CD-107 Map View",
+        descricao: "Mapa de armazenagem",
+        url: "https://kauan638.github.io/CD-107-MAP-VIEW-/",
+        categoria: "operacao"
+    },
+    {
+        nome: "Pendência PTL",
+        descricao: "Detalhamento por PTL → SKU → DESCRIÇÃO",
+        url: "https://kauan638.github.io/Pend-ncia-PTL/",
+        categoria: "relatorios"
+    },
+    {
+        nome: "CD-107 PCP Inteligência",
+        descricao: "Dashboards de monitoramento constante de estoque",
+        url: "https://kauan638.github.io/CD-107-PCP-INTELIG-NCIA/",
+        categoria: "relatorios"
+    }
+
+];
+
+const USUARIO_GITHUB = "Kauan638";
+
+const INTERVALO_AUTO_ATUALIZACAO_MS = 5 * 60 * 1000; // 5 minutos
+
+// extrai o nome do repositório a partir da URL do
+// GitHub Pages (https://usuario.github.io/NOME-DO-REPO/)
+
+function extrairNomeRepo(url){
+
+    try{
+
+        const partes =
+        new URL(url).pathname.split("/").filter(Boolean);
+
+        return partes[0] || null;
+
+    }
+    catch(erro){
+
+        console.error("URL inválida:", url, erro);
+
+        return null;
+
+    }
+
+}
+
+// formata a diferença entre agora e a data informada
+// em texto relativo ("agora", "há 5 min", "há 3 dias"...)
+
+function formatarTempoRelativo(isoData){
+
+    if(!isoData){
+        return "sem dados";
+    }
+
+    const agora = new Date();
+
+    const data = new Date(isoData);
+
+    const diffMs = agora - data;
+
+    const diffMin = Math.floor(diffMs / 60000);
+
+    if(diffMin < 1){
+        return "atualizado agora";
+    }
+
+    if(diffMin < 60){
+        return `atualizado há ${diffMin} min`;
+    }
+
+    const diffHoras = Math.floor(diffMin / 60);
+
+    if(diffHoras < 24){
+        return `atualizado há ${diffHoras}h`;
+    }
+
+    const diffDias = Math.floor(diffHoras / 24);
+
+    if(diffDias === 1){
+        return "atualizado ontem";
+    }
+
+    if(diffDias < 7){
+        return `atualizado há ${diffDias} dias`;
+    }
+
+    const diffSemanas = Math.floor(diffDias / 7);
+
+    if(diffSemanas === 1){
+        return "atualizado semana passada";
+    }
+
+    if(diffSemanas < 5){
+        return `atualizado há ${diffSemanas} semanas`;
+    }
+
+    const diffMeses = Math.floor(diffDias / 30);
+
+    return `atualizado há ${diffMeses} ${diffMeses === 1 ? "mês" : "meses"}`;
+
+}
+
+function ehRecente(isoData){
+
+    if(!isoData){
+        return false;
+    }
+
+    const diffHoras =
+    (new Date() - new Date(isoData)) / 3600000;
+
+    return diffHoras < 24;
+
+}
+
+// monta o HTML de um card (com ou sem dados carregados)
+
+function montarCardHtml(ferramenta, dados){
+
+    const repo = extrairNomeRepo(ferramenta.url);
+
+    const carregando = dados === null;
+
+    const linguagem =
+    dados?.language
+    ? dados.language.toLowerCase()
+    : "";
+
+    const textoTempo =
+    carregando
+    ? "carregando…"
+    : formatarTempoRelativo(dados?.pushed_at);
+
+    const classeRecente =
+    !carregando && ehRecente(dados?.pushed_at)
+    ? "recente"
+    : "";
+
+    return `
+    <a class="card ${carregando ? "carregando" : ""}"
+       href="${ferramenta.url}"
+       target="_blank"
+       data-repo="${repo || ""}">
+
+        <h2>${ferramenta.nome}</h2>
+
+        <p>${ferramenta.descricao}</p>
+
+        <div class="meta">
+            <span>
+                <span class="dot ${linguagem ? "lang-" + linguagem : ""}"></span>${dados?.language || "—"}
+            </span>
+            <span class="atualizado ${classeRecente}">${textoTempo}</span>
+        </div>
+
+    </a>
+    `;
+
+}
+
+function renderizarEsqueleto(){
+
+    const relatorios =
+    FERRAMENTAS.filter(f => f.categoria === "relatorios");
+
+    const operacao =
+    FERRAMENTAS.filter(f => f.categoria === "operacao");
+
+    document.getElementById("gridRelatorios").innerHTML =
+    relatorios.map(f => montarCardHtml(f, null)).join("");
+
+    document.getElementById("gridOperacao").innerHTML =
+    operacao.map(f => montarCardHtml(f, null)).join("");
+
+    document.getElementById("contagemRelatorios").innerText =
+    `${relatorios.length} ferramenta${relatorios.length === 1 ? "" : "s"}`;
+
+    document.getElementById("contagemOperacao").innerText =
+    `${operacao.length} ferramenta${operacao.length === 1 ? "" : "s"}`;
+
+}
+
+// busca os dados reais de um repositório na API do GitHub
+
+async function buscarDadosRepo(nomeRepo){
+
+    if(!nomeRepo){
+        return null;
+    }
+
+    try{
+
+        const resposta = await fetch(
+            `https://api.github.com/repos/${USUARIO_GITHUB}/${nomeRepo}`
+        );
+
+        if(!resposta.ok){
+
+            console.warn(
+                `Não consegui buscar dados de "${nomeRepo}" (status ${resposta.status})`
+            );
+
+            return null;
+
+        }
+
+        const json = await resposta.json();
+
+        return {
+            pushed_at: json.pushed_at,
+            language: json.language
+        };
+
+    }
+    catch(erro){
+
+        console.error(`Erro ao buscar "${nomeRepo}":`, erro);
+
+        return null;
+
+    }
+
+}
+
+async function carregarTudo(forcadoPeloUsuario){
+
+    const botao = document.getElementById("btnAtualizar");
+
+    if(forcadoPeloUsuario && botao){
+
+        botao.disabled = true;
+
+        botao.innerText = "🔄 Atualizando…";
+
+    }
+
+    renderizarEsqueleto();
+
+    const resultados = await Promise.all(
+
+        FERRAMENTAS.map(async ferramenta => {
+
+            const repo = extrairNomeRepo(ferramenta.url);
+
+            const dados = await buscarDadosRepo(repo);
+
+            return { ferramenta, dados };
+
+        })
+
+    );
+
+    const relatorios =
+    resultados.filter(r => r.ferramenta.categoria === "relatorios");
+
+    const operacao =
+    resultados.filter(r => r.ferramenta.categoria === "operacao");
+
+    document.getElementById("gridRelatorios").innerHTML =
+    relatorios.map(r => montarCardHtml(r.ferramenta, r.dados || {})).join("");
+
+    document.getElementById("gridOperacao").innerHTML =
+    operacao.map(r => montarCardHtml(r.ferramenta, r.dados || {})).join("");
+
+    document.getElementById("horaAtualizacao").innerText =
+    new Date().toLocaleTimeString("pt-BR");
+
+    if(botao){
+
+        botao.disabled = false;
+
+        botao.innerText = "🔄 Atualizar agora";
+
+    }
+
+}
+
+window.addEventListener("load", () => {
+
+    carregarTudo(false);
+
+    setInterval(() => carregarTudo(false), INTERVALO_AUTO_ATUALIZACAO_MS);
+
+});
+
+</script>
 
 </body>
 </html>
