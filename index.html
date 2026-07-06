@@ -258,6 +258,10 @@ header p a:hover{ text-decoration:underline; }
     color:var(--green);
 }
 
+.meta .atualizado.aviso{
+    color:var(--amber);
+}
+
 .card.carregando p,
 .card.carregando .meta{
     opacity:.45;
@@ -505,6 +509,10 @@ function ehRecente(isoData){
 }
 
 // monta o HTML de um card (com ou sem dados carregados)
+// dados === null      -> ainda carregando (esqueleto)
+// dados === undefined -> repo não encontrado na resposta da API
+// dados === "erro"    -> falha na API (rate limit / rede)
+// dados === {...}     -> dados normais
 
 function montarCardHtml(ferramenta, dados){
 
@@ -512,20 +520,39 @@ function montarCardHtml(ferramenta, dados){
 
     const carregando = dados === null;
 
+    const comErro = dados === "erro";
+
+    const naoEncontrado = dados === undefined;
+
     const linguagem =
-    dados?.language
+    (dados && typeof dados === "object" && dados.language)
     ? dados.language.toLowerCase()
     : "";
 
-    const textoTempo =
-    carregando
-    ? "carregando…"
-    : formatarTempoRelativo(dados?.pushed_at);
+    let textoTempo = "sem dados";
+
+    if(carregando){
+        textoTempo = "carregando…";
+    }
+    else if(comErro){
+        textoTempo = "limite da API atingido";
+    }
+    else if(naoEncontrado){
+        textoTempo = "repositório não encontrado";
+    }
+    else{
+        textoTempo = formatarTempoRelativo(dados?.pushed_at);
+    }
 
     const classeRecente =
-    !carregando && ehRecente(dados?.pushed_at)
+    !carregando && !comErro && !naoEncontrado && ehRecente(dados?.pushed_at)
     ? "recente"
-    : "";
+    : (comErro || naoEncontrado ? "aviso" : "");
+
+    const rotuloLinguagem =
+    (dados && typeof dados === "object" && dados.language)
+    ? dados.language
+    : "—";
 
     return `
     <a class="card ${carregando ? "carregando" : ""}"
@@ -539,7 +566,7 @@ function montarCardHtml(ferramenta, dados){
 
         <div class="meta">
             <span>
-                <span class="dot ${linguagem ? "lang-" + linguagem : ""}"></span>${dados?.language || "—"}
+                <span class="dot ${linguagem ? "lang-" + linguagem : ""}"></span>${rotuloLinguagem}
             </span>
             <span class="atualizado ${classeRecente}">${textoTempo}</span>
         </div>
@@ -571,43 +598,50 @@ function renderizarEsqueleto(){
 
 }
 
-// busca os dados reais de um repositório na API do GitHub
+// busca TODOS os repositórios do usuário numa única
+// chamada à API (em vez de uma chamada por ferramenta),
+// pra economizar o limite de requisições do GitHub
+// (60/hora por IP sem login).
 
-async function buscarDadosRepo(nomeRepo){
-
-    if(!nomeRepo){
-        return null;
-    }
+async function buscarTodosOsRepos(){
 
     try{
 
         const resposta = await fetch(
-            `https://api.github.com/repos/${USUARIO_GITHUB}/${nomeRepo}`
+            `https://api.github.com/users/${USUARIO_GITHUB}/repos?per_page=100`
         );
 
         if(!resposta.ok){
 
             console.warn(
-                `Não consegui buscar dados de "${nomeRepo}" (status ${resposta.status})`
+                `API do GitHub respondeu ${resposta.status} ao listar repositórios.`
             );
 
-            return null;
+            return { erro: resposta.status };
 
         }
 
-        const json = await resposta.json();
+        const lista = await resposta.json();
 
-        return {
-            pushed_at: json.pushed_at,
-            language: json.language
-        };
+        const mapaPorNome = {};
+
+        lista.forEach(repo => {
+
+            mapaPorNome[repo.name] = {
+                pushed_at: repo.pushed_at,
+                language: repo.language
+            };
+
+        });
+
+        return { mapaPorNome };
 
     }
     catch(erro){
 
-        console.error(`Erro ao buscar "${nomeRepo}":`, erro);
+        console.error("Erro ao buscar repositórios:", erro);
 
-        return null;
+        return { erro: "rede" };
 
     }
 
@@ -627,19 +661,34 @@ async function carregarTudo(forcadoPeloUsuario){
 
     renderizarEsqueleto();
 
-    const resultados = await Promise.all(
+    const { mapaPorNome, erro } = await buscarTodosOsRepos();
 
-        FERRAMENTAS.map(async ferramenta => {
+    const resultados =
+    FERRAMENTAS.map(ferramenta => {
 
-            const repo = extrairNomeRepo(ferramenta.url);
+        const repo = extrairNomeRepo(ferramenta.url);
 
-            const dados = await buscarDadosRepo(repo);
+        let dados;
 
-            return { ferramenta, dados };
+        if(erro){
 
-        })
+            dados = "erro";
 
-    );
+        }
+        else if(!repo || !mapaPorNome[repo]){
+
+            dados = undefined;
+
+        }
+        else{
+
+            dados = mapaPorNome[repo];
+
+        }
+
+        return { ferramenta, dados };
+
+    });
 
     const relatorios =
     resultados.filter(r => r.ferramenta.categoria === "relatorios");
@@ -648,19 +697,28 @@ async function carregarTudo(forcadoPeloUsuario){
     resultados.filter(r => r.ferramenta.categoria === "operacao");
 
     document.getElementById("gridRelatorios").innerHTML =
-    relatorios.map(r => montarCardHtml(r.ferramenta, r.dados || {})).join("");
+    relatorios.map(r => montarCardHtml(r.ferramenta, r.dados)).join("");
 
     document.getElementById("gridOperacao").innerHTML =
-    operacao.map(r => montarCardHtml(r.ferramenta, r.dados || {})).join("");
+    operacao.map(r => montarCardHtml(r.ferramenta, r.dados)).join("");
 
     document.getElementById("horaAtualizacao").innerText =
-    new Date().toLocaleTimeString("pt-BR");
+    erro
+    ? `falha (${erro === "rede" ? "sem conexão" : "limite da API atingido"})`
+    : new Date().toLocaleTimeString("pt-BR");
 
     if(botao){
 
-        botao.disabled = false;
+        // cooldown de 10s pra evitar cliques repetidos
+        // que estourem o limite de requisições
 
-        botao.innerText = "🔄 Atualizar agora";
+        setTimeout(() => {
+
+            botao.disabled = false;
+
+            botao.innerText = "🔄 Atualizar agora";
+
+        }, 10000);
 
     }
 
